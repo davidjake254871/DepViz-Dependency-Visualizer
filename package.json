@@ -16,6 +16,8 @@
     "theme": "dark"
   },
   "keywords": [
+    "function call",
+    "call stack",
     "dependency",
     "call graph",
     "import graph",
@@ -25,6 +27,7 @@
     "python",
     "typescript",
     "javascript",
+    "code diagram",
     "canvas"
   ],
   "activationEvents": [
@@ -162,5 +165,6 @@
     "typescript": "^5.0.0"
   }
 }
+
 
 
