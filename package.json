@@ -137,11 +137,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/Zentch/depviz.git"
+    "url": "https://github.com/ZENTCH-Q/DepViz-Dependency-Visualizer"
   },
-  "homepage": "https://github.com/Zentch/depviz",
+  "homepage": "https://github.com/ZENTCH-Q/DepViz-Dependency-Visualizer",
   "bugs": {
-    "url": "https://github.com/Zentch/depviz/issues"
+    "url": "https://github.com/ZENTCH-Q/DepViz-Dependency-Visualizer/issues"
   },
   "scripts": {
     "build": "esbuild src/extension.ts --bundle --minify --platform=node --target=node18 --external:vscode --outfile=out/extension.js",
@@ -162,3 +162,4 @@
     "typescript": "^5.0.0"
   }
 }
+
