@@ -1,6 +1,7 @@
 # DepViz — Dependency Visualizer
 
 It eats your repo and renders the truth: interactive maps of modules → classes → functions with call/import edges. Drag to rearrange, slice impact, jump to code, export snapshots. All local. No telemetry.
+![Showcase](https://github.com/user-attachments/assets/33de3d2e-513a-4a20-bf1e-c599ffe845b9)
 
 ## Highlights
 - **Import** from Explorer or drag & drop.
@@ -12,3 +13,4 @@ It eats your repo and renders the truth: interactive maps of modules → classes
 - **Impact slices**: highlight inbound/outbound blast radius.
 
 > Works with TypeScript/JavaScript/Python (heuristic parsing).
+
