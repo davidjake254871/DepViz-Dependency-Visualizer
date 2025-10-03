@@ -153,7 +153,7 @@
     "media/**",
     "README.md",
     "package.json",
-    "License"
+    "lICENSE"
   ],
   "license": "MIT",
   "devDependencies": {
@@ -162,5 +162,6 @@
     "typescript": "^5.0.0"
   }
 }
+
 
 
