@@ -1,7 +1,7 @@
 {
   "name": "depviz",
   "displayName": "DepViz — Dependency Visualizer",
-  "description": "Interactive call/import maps for Python & JS/TS. Drag, slice impact, jump to code, export.",
+  "description": "Visualize function calls, call stacks, and architecture diagrams in VS Code. Python/TS/JS.",
   "version": "0.1.4",
   "publisher": "Zentch",
   "engines": {
