@@ -5,6 +5,14 @@
   const VS = globalThis.vscode; // set by nonce'd boot script in extension.ts
   console.log('[DepViz] webview booted, VS present:', !!VS);
 
+  // Small safety helpers introduced to centralize interactions with the VS Code
+  // host (acquireVsCodeApi). They replace ad-hoc try/catch and repetitive
+  // null-checks around VS.postMessage / VS.setState so callers stay concise
+  // and behavior remains unchanged. Keep these minimal and deliberate.
+  function safeCall(fn){ try { return fn(); } catch (e) { /* swallow - UI should be resilient */ } }
+  function vsSetState(s){ safeCall(()=> VS?.setState?.(s)); }
+  function vsPostRaw(msg){ safeCall(()=> { if (VS) VS.postMessage(msg); }); }
+
   // DOM
   const svg = document.getElementById('canvas');
   const wrapper = document.getElementById('canvasWrapper');
@@ -207,12 +215,12 @@
           try { _lastSentHash = ''; } catch {}
           DepViz.data?.normalizeNodes?.();
           schedule();
-          VS && VS.postMessage({ type:'clearCanvas' });
+          vsPostRaw({ type:'clearCanvas' });
         } },
       { id:'export_submenu', label:'Export', run: ()=>{} },
       { id:'search_fn', label:'Search function...', run: ()=>{} },
-      { id:'import_json', label:'Import Artifacts (.json)', run: ()=> VS && VS.postMessage({ type:'requestImportJson' }) },
-      { id:'import_dv',   label:'Load Snapshot (.dv)',     run: ()=> VS && VS.postMessage({ type:'requestImportSnapshot' }) },
+    { id:'import_json', label:'Import Artifacts (.json)', run: ()=> vsPostRaw({ type:'requestImportJson' }) },
+    { id:'import_dv',   label:'Load Snapshot (.dv)',     run: ()=> vsPostRaw({ type:'requestImportSnapshot' }) },
     );
     showCtx(e, { kind:'canvas' }, items);
   });
@@ -234,7 +242,7 @@
       const kill = new Set([id, ...state.data.nodes.filter(n=>n.parent===id).map(n=>n.id)]);
       state.data.nodes = state.data.nodes.filter(n => !kill.has(n.id));
       state.data.edges = state.data.edges.filter(e => !kill.has(e.from) && !kill.has(e.to));
-      try { if (VS && mod && mod.fsPath) { VS.postMessage({ type: 'evictFingerprint', fsPath: mod.fsPath }); } } catch {}
+  try { if (mod && mod.fsPath) { vsPostRaw({ type: 'evictFingerprint', fsPath: mod.fsPath }); } } catch {}
       schedule(); return;
     }
   }
@@ -278,13 +286,11 @@
     requestAnimationFrame(() => {
       state.needsFrame = false;
       try { renderAll(); } catch (e) { console.error('DepViz render error:', e); }
-      try {
-        VS?.setState?.({
-          theme: document.documentElement.getAttribute('data-theme') || 'dark',
-          pan: state.pan,
-          zoom: state.zoom
-        });
-      } catch {}
+      vsSetState({
+        theme: document.documentElement.getAttribute('data-theme') || 'dark',
+        pan: state.pan,
+        zoom: state.zoom
+      });
       try { postDirtyEditDebounced(); } catch {}
     });
   }
@@ -372,7 +378,7 @@
       const mods = new Map(nodes.filter(n=>n.kind==='module').map(m=>[m.fsPath||m.label,m]));
       const funcs= nodes.filter(n=>n.kind==='func').length;
       const clss = nodes.filter(n=>n.kind==='class').length;
-      VS && VS.postMessage({
+      vsPostRaw({
         type:'impactSummary',
         payload:{ dir, files:[...mods.keys()], counts:{ modules:mods.size, classes:clss, funcs, edges:(s.edges?.size||0) } }
       });
@@ -463,7 +469,7 @@
     const next = isDark ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', next);
     themeToggle.setAttribute('src', next === 'light' ? light : dark);
-    try { VS?.setState?.({ theme: next }); } catch {}
+  vsSetState({ theme: next });
   });
 
   // Toolbar
@@ -475,7 +481,7 @@
     try { _lastSentHash = ''; } catch {}
     DepViz.data?.normalizeNodes?.();
     schedule();
-    VS && VS.postMessage({ type: 'clearCanvas' });
+  vsPostRaw({ type: 'clearCanvas' });
   });
   btnHelp?.addEventListener('click', ()=>{ help.hidden = !help.hidden; });
 
@@ -547,7 +553,7 @@
      state._hist.push(snap);
      state._histIndex = state._hist.length - 1;
      _lastSentHash = hash;
-     VS && VS.postMessage({ type: 'edit', payload: snap, label });
+  vsPostRaw({ type: 'edit', payload: snap, label });
    } catch {}
  }
  function postDirtyEditDebounced() {
@@ -577,7 +583,7 @@
        typeVisibility: state.typeVisibility,
        data: state.data
      };
-     VS && VS.postMessage({ type: 'saveSnapshot', payload: snapshot });
+  vsPostRaw({ type: 'saveSnapshot', payload: snapshot });
    }
  });
   window.addEventListener('keydown', (e)=>{
@@ -595,7 +601,7 @@
      state._histIndex--;
      const snap = state._hist[state._histIndex];
      applySnapshot(snap);
-     VS && VS.postMessage({ type:'edit', payload: snap, label:'Undo' });
+  vsPostRaw({ type:'edit', payload: snap, label:'Undo' });
    } catch {}
  }
  function doRedo(){
@@ -604,7 +610,7 @@
      state._histIndex++;
      const snap = state._hist[state._histIndex];
      applySnapshot(snap);
-     VS && VS.postMessage({ type:'edit', payload: snap, label:'Redo' });
+  vsPostRaw({ type:'edit', payload: snap, label:'Redo' });
    } catch {}
  }
  window.addEventListener('keydown', (e)=>{
@@ -655,7 +661,7 @@
         for (const f of e.dataTransfer.files) { try { if (f.path) items.push(f.path); } catch {} }
       }
     } catch {}
-    if (items.length && VS) VS.postMessage({ type: 'droppedUris', items: Array.from(new Set(items)) });
+  if (items.length) vsPostRaw({ type: 'droppedUris', items: Array.from(new Set(items)) });
   };
   wrapper.addEventListener('drop', onDrop);
   svg.addEventListener('drop', onDrop);
@@ -710,7 +716,7 @@
     });
     // Guard NO_SAMPLE usage so packaging without it won't throw
     const NO_SAMPLE = typeof globalThis.NO_SAMPLE !== 'undefined' ? globalThis.NO_SAMPLE : false;
-    if (!NO_SAMPLE) VS.postMessage({ type: 'requestSample' });
+  if (!NO_SAMPLE) vsPostRaw({ type: 'requestSample' });
   }
 
   // ---------- Render ----------
@@ -859,7 +865,7 @@
           const items = [
             { id:'toggle', label: m.collapsed ? 'Expand card' : 'Collapse card', run: ()=>{ m.collapsed = !m.collapsed; schedule(); } },
             { id:'focus_card', label:'Focus this card', run: ()=>{ try { state.focusModuleId = m.id; state.focusId = null; applyTypeVisibility(); centerOnNode(m); schedule(); } catch{} } },
-            { id:'open_file', label:'Open File', run: ()=>{ try { if (VS && m.fsPath){ VS.postMessage({ type:'openAt', fsPath: m.fsPath, line:0, col:0, view:'beside' }); } } catch{} } },
+            { id:'open_file', label:'Open File', run: ()=>{ try { if (m.fsPath){ vsPostRaw({ type:'openAt', fsPath: m.fsPath, line:0, col:0, view:'beside' }); } } catch{} } },
             { id:'slice_out', label:'Show dependencies', run: ()=>{ const s=computeSlice(m.id,'out'); applySliceOverlay(s); postImpactSummary(s,'out'); } },
             { id:'slice_in',  label:'Show dependents',   run: ()=>{ const s=computeSlice(m.id,'in');  applySliceOverlay(s); postImpactSummary(s,'in'); } },
             { id:'slice_clear', label:'Clear highlight', run: ()=> applySliceOverlay(null) },
@@ -906,7 +912,7 @@
             const nameOnly = (n.label||'').replace(/^class\s+/,'').trim();
             const items = [
               { id:'reattach_parent', label:'Re-attach to module', run: ()=> reattachClassById(n.id) },
-              { id:'goto', label:`Go to definition: ${nameOnly}` , run: ()=>{ try { if (VS && n.fsPath){ VS.postMessage({ type:'gotoDef', target: { file: n.fsPath, name: nameOnly }, view:'beside' }); } } catch{} } },
+              { id:'goto', label:`Go to definition: ${nameOnly}` , run: ()=>{ try { if (n.fsPath){ vsPostRaw({ type:'gotoDef', target: { file: n.fsPath, name: nameOnly }, view:'beside' }); } } catch{} } },
               { id:'slice_out', label:'Show dependencies', run: ()=>{ const s=computeSlice(m.id,'out'); applySliceOverlay(s); postImpactSummary(s,'out'); } },
               { id:'slice_in',  label:'Show dependents',   run: ()=>{ const s=computeSlice(m.id,'in');  applySliceOverlay(s); postImpactSummary(s,'in'); } },
               { id:'slice_clear', label:'Clear highlight', run: ()=> applySliceOverlay(null) },
@@ -1213,13 +1219,13 @@
     const name = _nameOnly(n);
     const hasRange = n.range && Number.isInteger(n.range.line) && Number.isInteger(n.range.col);
     if (hasRange){
-      VS.postMessage({ type:'openAt', fsPath:n.fsPath, line:n.range.line, col:n.range.col, view });
+      vsPostRaw({ type:'openAt', fsPath:n.fsPath, line:n.range.line, col:n.range.col, view });
       if (peek && n.kind!=='class'){
-        VS.postMessage({ type:'peekRefs', target:{ file:n.fsPath, name }, view });
+        vsPostRaw({ type:'peekRefs', target:{ file:n.fsPath, name }, view });
       }
       return;
     }
-    VS.postMessage({ type: peek ? 'peekRefs' : 'gotoDef', target:{ file:n.fsPath, name }, view });
+  vsPostRaw({ type: peek ? 'peekRefs' : 'gotoDef', target:{ file:n.fsPath, name }, view });
   }
   function applyModuleLabel(textEl, rawLabel){
     try {
@@ -1349,7 +1355,7 @@
         .filter(Boolean);
       if (!callers.length) { applyTypeVisibility(); return; }
       const items = callers.slice(0,20).map(caller => ({ id: 'open_'+caller.id, label: (caller.label||caller.id), run: ()=>{
-        try { if (VS && caller.fsPath){ const line=(caller.range&&caller.range.line)||0; const col=(caller.range&&caller.range.col)||0; VS.postMessage({ type:'openAt', fsPath: caller.fsPath, line, col, view:'beside' }); } } catch{}
+  try { if (caller.fsPath){ const line=(caller.range&&caller.range.line)||0; const col=(caller.range&&caller.range.col)||0; vsPostRaw({ type:'openAt', fsPath: caller.fsPath, line, col, view:'beside' }); } } catch{}
       }}));
       showCtx(ev, { kind:'peek', id: node.id }, items);
       applyTypeVisibility();
@@ -1594,7 +1600,7 @@
       const ser = new XMLSerializer();
       const text = ser.serializeToString(clone);
       const base64 = btoa(unescape(encodeURIComponent(text)));
-      VS && VS.postMessage({ type:'exportData', kind:'svg', base64, suggestedName: 'depviz.svg' });
+  vsPostRaw({ type:'exportData', kind:'svg', base64, suggestedName: 'depviz.svg' });
     } catch(e){ console.error('exportSvg error', e); }
   }
   async function exportPng(){
@@ -1615,7 +1621,7 @@
       URL.revokeObjectURL(url);
       const dataUrl = canvas.toDataURL('image/png');
       const base64 = dataUrl.replace(/^data:image\/png;base64,/, '');
-      VS && VS.postMessage({ type:'exportData', kind:'png', base64, suggestedName: 'depviz.png' });
+  vsPostRaw({ type:'exportData', kind:'png', base64, suggestedName: 'depviz.png' });
     } catch(e){ console.error('exportPng error', e); }
   }
   function exportJson(){
@@ -1630,7 +1636,7 @@
       };
       const text = JSON.stringify(safe, null, 2);
       const base64 = btoa(unescape(encodeURIComponent(text)));
-      VS && VS.postMessage({ type:'exportData', kind:'json', base64, suggestedName: 'depviz.json' });
+  vsPostRaw({ type:'exportData', kind:'json', base64, suggestedName: 'depviz.json' });
     } catch(e){ console.error('exportJson error', e); }
   }
   function exportSnapshotDv(){
@@ -1644,7 +1650,7 @@
       };
       const text = JSON.stringify(snapshot, null, 2);
       const base64 = btoa(unescape(encodeURIComponent(text)));
-      VS && VS.postMessage({ type:'exportData', kind:'dv', base64, suggestedName: 'graph.dv' });
+  vsPostRaw({ type:'exportData', kind:'dv', base64, suggestedName: 'graph.dv' });
     } catch(e){ console.error('exportSnapshotDv error', e); }
   }
   // Minimal API surface for easier maintenance/testing
