@@ -355,9 +355,24 @@ async function parseFileLspAware(uri: vscode.Uri, text: string) {
   const edges: any[] = [];
 
   try {
+    const isInlineTsCallback = (doc: vscode.TextDocument, sel: vscode.Range) => {
+      try {
+        const line = sel.start.line;
+        const col  = sel.start.character;
+        const L = doc.lineAt(line).text;
+        const prefix = L.slice(0, col).trimEnd();
+        // If the token begins right after "(", ",", or ":" → very likely an argument or object field
+        // Keep when it's an assignment `= (...) =>` or `= function (...)`
+        if (/[(:,]\s*$/.test(prefix)) return true;   // inline callback position
+        // Heuristic: if there's an "=" between start-of-line and our position on the same line, it's a decl
+        if (/\=\s*$/.test(prefix)) return false;
+      } catch {}
+      return false;
+    };
     const doc = await vscode.workspace.openTextDocument(uri);
     const res = await vscode.commands.executeCommand<any>('vscode.executeDocumentSymbolProvider', uri);
     const symbols: vscode.DocumentSymbol[] = Array.isArray(res) ? res : [];
+    const isTsLike = /^(typescript|javascript)/i.test(doc.languageId);
 
     type Fn = { id: string; name: string; start: number; end: number; col: number; parent: string };
     const fns: Fn[] = [];
@@ -366,7 +381,7 @@ async function parseFileLspAware(uri: vscode.Uri, text: string) {
       const id = `fn_${hash(fileLabel + ':' + name + ':' + sel.start.line)}`;
       fns.push({ id, name, start: sel.start.line, end: full.end.line, col: sel.start.character, parent });
     };
-    const walk = (s: vscode.DocumentSymbol) => {
+    const walk = (s: vscode.DocumentSymbol, parentKind: string) => {
       if (s.kind === vscode.SymbolKind.Class) {
         // add a class node as a card inside the module
         const className = s.name;
@@ -380,20 +395,33 @@ async function parseFileLspAware(uri: vscode.Uri, text: string) {
             const clsId = classIds.get(className)!;
             addFn(`${s.name}.${c.name}`, c.selectionRange ?? c.range, c.range, clsId);
           }
+          // still walk children to pick nested classes (rare) or deeper members
+          walk(c, 'class');
         }
       } else if (s.kind === vscode.SymbolKind.Function) {
-        addFn(s.name, s.selectionRange ?? s.range, s.range, moduleId);
+        const keep =
+          !isTsLike                                  // Python/others: keep
+          || (parentKind === 'module' &&             // top-level
+              !isInlineTsCallback(doc, s.selectionRange ?? s.range)) // not an argument callback
+          || parentKind === 'class';                 // class method already handled above (dup-safe)
+        if (keep) addFn(s.name, s.selectionRange ?? s.range, s.range, moduleId);
       }
-      for (const ch of (s.children || [])) walk(ch);
+      for (const ch of (s.children || [])) {
+        // Propagate parentKind: functions create a 'func' scope so nested TS/JS funcs get ignored
+        const nextParent =
+          s.kind === vscode.SymbolKind.Class ? 'class' :
+          s.kind === vscode.SymbolKind.Function ? 'func' : parentKind || 'other';
+        walk(ch, nextParent);
+      }
     };
-    symbols.forEach(walk);
+    symbols.forEach(s => walk(s, 'module'));
 
     // Fallback if none discovered
     if (!fns.length) return parseFile(uri, text);
 
     const lines = text.split(/\r?\n/);
     for (const fn of fns) {
-      nodes.push({ id: fn.id, kind: 'func', label: `def ${fn.name}()`, parent: fn.parent, docked: true, snippet: snippetFrom(lines, fn.start), fsPath: uri.fsPath, range: { line: fn.start, col: fn.col } });
+      nodes.push({ id: fn.id, kind: 'func', label: `${fn.name}()`, parent: fn.parent, docked: true, snippet: snippetFrom(lines, fn.start), fsPath: uri.fsPath, range: { line: fn.start, col: fn.col } });
     }
 
     // Within-file call edges (heuristic)
@@ -926,7 +954,7 @@ function parseFile(uri: vscode.Uri, text: string) {
 
   for (const fn of fns) {
     nodes.push({
-      id: fn.id, kind: 'func', label: `def ${fn.name}()`, parent: fn.parent || moduleId, docked: true,
+      id: fn.id, kind: 'func', label: `${fn.name}()`, parent: fn.parent || moduleId, docked: true,
       snippet: snippetFrom(lines, fn.start), fsPath: uri.fsPath, range: { line: fn.start, col: fn.col }
     });
   }
