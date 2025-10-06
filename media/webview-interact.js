@@ -46,6 +46,7 @@
 
   function enableModuleDrag(g, rect, node, gmDocked){
     let dragging=false, grab={x:0,y:0}, rafId=null;
+    let _lastNx = null, _lastNy = null;
 
     function pushOut(nx,ny){
       const self = S.moduleBoxes.get(node.id);
@@ -109,6 +110,8 @@
       if (!dragging) return;
       const w = D.svg.clientToWorld(e);
       const nx = w.x - grab.x; const ny = w.y - grab.y;
+      if (_lastNx!==null && Math.abs(nx-_lastNx)<0.5 && Math.abs(ny-_lastNy)<0.5) return;
+      _lastNx = nx; _lastNy = ny;
       if (rafId) cancelAnimationFrame(rafId);
       rafId = requestAnimationFrame(()=>apply(nx,ny));
     };
@@ -159,6 +162,7 @@
 
   function enableFuncDrag(g, rect, node, funcW, docked){
     let dragging=false, grab={x:0,y:0}, rafId=null;
+    let _lastNx = null, _lastNy = null;
     const apply = (nx,ny)=>{
       if (node.docked) {
         const m = S.moduleBoxes.get(node.parent);
@@ -198,6 +202,8 @@
       if (!dragging) return;
       const w = D.svg.clientToWorld(e);
       const nx = w.x - grab.x; const ny = w.y - grab.y;
+      if (_lastNx!==null && Math.abs(nx-_lastNx)<0.5 && Math.abs(ny-_lastNy)<0.5) return;
+      _lastNx = nx; _lastNy = ny;
       if (rafId) cancelAnimationFrame(rafId);
       rafId = requestAnimationFrame(()=>apply(nx,ny));
     };
@@ -277,6 +283,7 @@
 
   function enableClassDrag(cg, rect, node){
     let dragging=false, grab={x:0,y:0}, rafId=null, lastPtr={x:0,y:0};
+    let _lastNx = null, _lastNy = null;
     const apply = (nx, ny, ptr)=>{
       try {
         const modBox = node.docked ? S.moduleBoxes.get(node.parent) : undefined;
@@ -344,6 +351,8 @@
       const w = D.svg.clientToWorld(e);
       lastPtr = { x: w.x, y: w.y };
       const nx = w.x - grab.x; const ny = w.y - grab.y;
+      if (_lastNx!==null && Math.abs(nx-_lastNx)<0.5 && Math.abs(ny-_lastNy)<0.5) return;
+      _lastNx = nx; _lastNy = ny;
       if (rafId) cancelAnimationFrame(rafId);
       rafId = requestAnimationFrame(()=>apply(nx,ny,lastPtr));
     };

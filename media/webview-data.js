@@ -1,4 +1,4 @@
-// Data module: merge artifacts, normalize nodes, infer edges
+// webview-data.js
 (function(){
   const D = globalThis.DepViz || (globalThis.DepViz = {});
   const S = D.state;
@@ -8,7 +8,11 @@
     const modules = new Map(S.data.nodes.filter(n=>n.kind==='module').map(m=>[m.id, m]));
     const nameToFns = new Map(); // function name -> array of nodes
     for (const f of funcs){
-      const nm = (f.label||'').replace(/^.*\s+([A-Za-z_][A-Za-z0-9_]*)\(\).*$/,'$1');
+      const nm = (() => {
+        const s = String(f.label||'');
+        const mFn = /([A-Za-z_][A-Za-z0-9_]*)\(\)\s*$/.exec(s);
+        return mFn ? mFn[1] : s.trim();
+      })();
       if (!nm) continue; if (!nameToFns.has(nm)) nameToFns.set(nm, []); nameToFns.get(nm).push(f);
     }
     // compute import preferences per module by re-parsing module.source
@@ -53,27 +57,68 @@
   }
 
   function h(s){
+    // match src/core/hash.ts (FNV-1a 32-bit, zero-padded)
     let h = 2166136261 >>> 0;
     for (let i=0;i<s.length;i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
-    return (h>>>0).toString(16);
+    return (h>>>0).toString(16).padStart(8,'0');
   }
 
   function mergeArtifacts(payload){
-    const ids = new Set(S.data.nodes.map(n=>n.id));
-    for (const n of (payload.nodes || [])) {
-    if (!ids.has(n.id)) {
-      if (n.kind==='func' && typeof n.docked !== 'boolean') n.docked = true;
-      S.data.nodes.push(n); ids.add(n.id);
+    // Support hard replace mode as a guard (also handled by message layer, but make idempotent)
+    if (payload && payload.replace) {
+      S.data.nodes = [];
+      S.data.edges = [];
     }
+    const incoming = (payload && Array.isArray(payload.nodes)) ? payload.nodes : [];
+    const incomingById = new Map(incoming.map(n => [n.id, n]));
+
+    // Build next node list by replacing existing nodes when IDs match.
+    const nextNodes = [];
+    const seenIds = new Set();
+    for (const old of (S.data.nodes || [])) {
+      const newer = incomingById.get(old.id);
+      if (newer) {
+        // Prefer incoming fields; keep layout if not provided.
+        const merged = { ...newer };
+        if (typeof merged.x !== 'number' && typeof merged.dx !== 'number') {
+          if (typeof old.x === 'number') merged.x = old.x;
+          if (typeof old.y === 'number') merged.y = old.y;
+          if (typeof old.dx === 'number') merged.dx = old.dx;
+          if (typeof old.dy === 'number') merged.dy = old.dy;
+        }
+        // If payload omits snippet/source, drop any stale ones.
+        if (!('snippet' in newer)) delete (merged).snippet;
+        if (!('source'  in newer)) delete (merged).source;
+        // Ensure docked default for funcs
+        if (merged.kind === 'func' && typeof merged.docked !== 'boolean') merged.docked = true;
+        nextNodes.push(merged);
+        seenIds.add(old.id);
+        incomingById.delete(old.id);
+      } else {
+        nextNodes.push(old);
+      }
     }
-    const ekeys = new Set(S.data.edges.map(e => `${e.from}->${e.to}:${e.type}`));
-    for (const e of (payload.edges || [])) {
-      const key = `${e.from}->${e.to}:${e.type}`;
-      const from = S.data.nodes.find(n=>n.id===e.from);
-      const to = S.data.nodes.find(n=>n.id===e.to);
-      if (from && to && from.kind==='module' && to.kind==='func' && to.parent===from.id && e.type==='import') continue;
-      if (!ekeys.has(key)) { S.data.edges.push(e); ekeys.add(key); }
+    // Any remaining incoming nodes are new → add them.
+    for (const n of incomingById.values()) {
+      const add = { ...n };
+      if (add.kind === 'func' && typeof add.docked !== 'boolean') add.docked = true;
+      nextNodes.push(add);
+      seenIds.add(add.id);
     }
+    S.data.nodes = nextNodes;
+
+    // Edges: concat + dedupe (simple key).
+    const allEdges = [...(S.data.edges || []), ...((payload && payload.edges) || [])];
+    const keyOf = (e)=>`${e.from}->${e.to}:${e.type}`;
+    const seenE = new Set();
+    const dedup = [];
+    for (const e of allEdges) {
+      const k = keyOf(e);
+      if (seenE.has(k)) continue;
+      seenE.add(k);
+      dedup.push(e);
+    }
+    S.data.edges = dedup;
   }
 
   function normalizeNodes(){

@@ -1,3 +1,5 @@
+//webview.js
+
 (function(){
   // Stable VS Code handle
   const VS = globalThis.vscode; // set by nonce'd boot script in extension.ts
@@ -96,8 +98,11 @@
   const ctxSub = document.createElement('div');
   ctxSub.className = 'context-menu context-sub';
   document.body.appendChild(ctxSub);
-  window.addEventListener('click', ()=>{ ctx.style.display='none'; });
-  window.addEventListener('click', ()=>{ ctxSub.style.display='none'; });
+  // single global click closer (merge duplicates)
+  window.addEventListener('click', ()=>{
+    ctx.style.display='none';
+    ctxSub.style.display='none';
+  });
   window.addEventListener('contextmenu', ()=>{ /* let handlers decide */ });
   function showCtx(e, target, items){
     try { e.preventDefault(); } catch {}
@@ -115,7 +120,11 @@
       }
       // Default click closes menu; special items may override
       if (it.id !== 'export_submenu') {
-        btn.addEventListener('click', ()=>{ try { clickHandler && clickHandler(); } finally { ctx.style.display='none'; } });
+        btn.addEventListener('click', () => {
+          try { if (clickHandler) clickHandler(); } catch {}
+          ctx.style.display = 'none';
+          ctxSub.style.display = 'none';
+        });
       }
       // Hover submenu support (cascade without hiding main menu)
       if (it.submenu && Array.isArray(it.submenu)){
@@ -154,7 +163,11 @@
         const btn = document.createElement('button');
         btn.textContent = it.label;
         btn.setAttribute('data-act', it.id);
-        btn.addEventListener('click', ()=>{ try { it.run && it.run(); } finally { ctx.style.display='none'; ctxSub.style.display='none'; } });
+        btn.addEventListener('click', () => {
+          try { if (it.run) it.run(); } catch {}
+          ctx.style.display = 'none';
+          ctxSub.style.display = 'none';
+        });
         ctxSub.appendChild(btn);
       }
       ctxSub.style.display = 'block'; ctxSub.style.left = Math.round(x)+'px'; ctxSub.style.top = Math.round(y)+'px';
@@ -182,14 +195,22 @@
       items.push({ id:'clear_focus', label:'Clear focus', run: ()=>{ try { state.focusId = null; state.focusModuleId = null; applyTypeVisibility(); } finally { schedule(); } } });
     }
     if (hasSlice) {
-      items.push({ id:'slice_clear', label:'Clear impact slice', run: ()=>{ try { applySliceOverlay(null); } finally { schedule(); } } });
+      items.push({ id:'slice_clear', label:'Clear highlight', run: ()=>{ try { applySliceOverlay(null); } finally { schedule(); } } });
     }
     items.push(
       { id:'arrange', label:'Auto layout (Ctrl/Cmd+Shift+A)', run: ()=>{ DepViz.arrange?.autoArrangeByFolders?.(); schedule(); } },
       { id:'toggle_collapse_all', label: toggleLabel, run: toggleRun },
-      { id:'clear', label:'Clear', run: ()=>{ state.data = { nodes: [], edges: [] }; DepViz.data?.normalizeNodes?.(); schedule(); VS && VS.postMessage({ type:'clearCanvas' }); } },
+      { id:'clear', label:'Clear', run: ()=>{
+          state.data = { nodes: [], edges: [] };
+          try { nodeMap.clear(); edgesByFrom.clear(); edgesByTo.clear(); } catch {}
+          try { state._hist = []; state._histIndex = -1; } catch {}
+          try { _lastSentHash = ''; } catch {}
+          DepViz.data?.normalizeNodes?.();
+          schedule();
+          VS && VS.postMessage({ type:'clearCanvas' });
+        } },
       { id:'export_submenu', label:'Export', run: ()=>{} },
-      { id:'search_fn', label:'Search function...', run: ()=>{ try { const q = prompt('Search function name'); if (!q) return; focusFunctionByName(q); } catch{} } },
+      { id:'search_fn', label:'Search function...', run: ()=>{} },
       { id:'import_json', label:'Import Artifacts (.json)', run: ()=> VS && VS.postMessage({ type:'requestImportJson' }) },
       { id:'import_dv',   label:'Load Snapshot (.dv)',     run: ()=> VS && VS.postMessage({ type:'requestImportSnapshot' }) },
     );
@@ -447,7 +468,15 @@
 
   // Toolbar
   btnArrange?.addEventListener('click', ()=>{ DepViz.arrange?.autoArrangeByFolders?.(); schedule(); });
-  btnClear?.addEventListener('click', ()=>{ state.data = { nodes: [], edges: [] }; DepViz.data?.normalizeNodes?.(); schedule(); VS && VS.postMessage({ type: 'clearCanvas' }); });
+  btnClear?.addEventListener('click', ()=>{
+    state.data = { nodes: [], edges: [] };
+    try { nodeMap.clear(); edgesByFrom.clear(); edgesByTo.clear(); } catch {}
+    try { state._hist = []; state._histIndex = -1; } catch {}
+    try { _lastSentHash = ''; } catch {}
+    DepViz.data?.normalizeNodes?.();
+    schedule();
+    VS && VS.postMessage({ type: 'clearCanvas' });
+  });
   btnHelp?.addEventListener('click', ()=>{ help.hidden = !help.hidden; });
 
   // Export/Import moved to canvas context menu
@@ -457,10 +486,7 @@
     const mod = e.ctrlKey || e.metaKey;
     if (mod && e.shiftKey && e.key.toLowerCase()==='a'){ e.preventDefault(); DepViz.arrange?.autoArrangeByFolders?.(); schedule(); }
   });
-  window.addEventListener('keydown', (e)=>{
-    const mod = e.ctrlKey || e.metaKey;
-    if (mod && e.shiftKey && e.key.toLowerCase()==='b'){ e.preventDefault(); DepViz.arrange?.autoArrangeBalanced?.(); schedule(); }
-  });
+
   window.addEventListener('keydown', (e)=>{ if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase()==='f'){ e.preventDefault(); try { showSearchBar(); } catch{} } });
   // Make Escape actually useful: close search else clear slice
   window.addEventListener('keydown', (e)=>{
@@ -475,11 +501,6 @@
         }
       } catch {}
     }
-  });
-  window.addEventListener('keydown', (e)=>{ const mod = e.ctrlKey || e.metaKey; if (mod && e.key==='/'){ e.preventDefault(); help.hidden = !help.hidden; } });
-  window.addEventListener('keydown', (e)=>{
-    const mod = e.ctrlKey || e.metaKey;
-    if (mod && e.shiftKey && e.key.toLowerCase()==='s') { e.preventDefault(); applySliceOverlay(null); schedule(); }
   });
 
  let _dirtyTimer = null;
@@ -503,24 +524,6 @@
     if ((state.data.nodes||[]).some(n => n.kind==='class' && n.parent===modId && !n.docked)) return true;
     // classes with lost methods
     return (state.data.nodes||[]).some(n => n.kind==='class' && n.parent===modId && hasLostMethods(n.id));
-  }
-  function reassembleClassById(clsId){
-    for (const f of (state.data.nodes||[])) {
-      if (f.kind==='func' && f.parent===clsId) {
-        f.docked = true; delete f.x; delete f.y; delete f.dx; delete f.dy;
-      }
-    }
-    schedule();
-  }
-  function reassembleModuleById(modId){
-    for (const n of (state.data.nodes||[])) {
-      if (n.parent===modId) {
-        // pull classes back to the module, and their methods back to each class
-        if (n.kind==='class') { n.docked = true; delete n.x; delete n.y; delete n.dx; delete n.dy; reassembleClassById(n.id); }
-        if (n.kind==='func')  { n.docked = true; delete n.x; delete n.y; delete n.dx; delete n.dy; }
-      }
-    }
-    schedule();
   }
  function applySnapshot(snap){
    try {
@@ -658,27 +661,8 @@
   svg.addEventListener('drop', onDrop);
 
   // --- Load & messages ---
-  const DATA_URI = (window.DEPVIZ && window.DEPVIZ.DATA_URI) || window.DATA_URI;
-  const NO_SAMPLE = !!(window.DEPVIZ && window.DEPVIZ.NO_SAMPLE);
-  try {
-    if (!restoredFromState && DATA_URI && !NO_SAMPLE) {
-      fetch(DATA_URI)
-        .then(r => r && r.ok ? r.json() : null)
-        .then(payload => {
-          if (payload) {
-            state.data = payload;
-            DepViz.data?.normalizeNodes?.();
-          }
-          schedule();
-          pushHistory('Initial load');
-        })
-        .catch(()=>{ schedule(); });
-    } else {
-      schedule();
-      pushHistory('Initial');
-    }
-  } catch { schedule(); }
-
+  schedule();
+  pushHistory('Initial');
   if (VS) {
     window.addEventListener('message', (event) => {
       try {
@@ -691,11 +675,15 @@
           pushHistory('Load sample');
         }
         if (msg.type === 'addArtifacts') {
+          // If the extension says this is a fresh batch, wipe current graph first
+          if (msg?.payload?.replace) {
+            state.data = { nodes: [], edges: [] };
+            try { nodeMap.clear(); edgesByFrom.clear(); edgesByTo.clear(); } catch {}
+          }
           // Pre-position incoming modules so they don't stack and appear near drop
           try { primeSpawnPositions(msg.payload); } catch {}
           DepViz.data?.mergeArtifacts?.(msg.payload);
           DepViz.data?.normalizeNodes?.();
-          DepViz.data?.recomputeMissingEdges?.();
           schedule();
           pushHistory('Import artifacts');
         }
@@ -720,6 +708,8 @@
         }
       } catch(e){ console.error('DepViz message error:', e); }
     });
+    // Guard NO_SAMPLE usage so packaging without it won't throw
+    const NO_SAMPLE = typeof globalThis.NO_SAMPLE !== 'undefined' ? globalThis.NO_SAMPLE : false;
     if (!NO_SAMPLE) VS.postMessage({ type: 'requestSample' });
   }
 
@@ -749,6 +739,7 @@
       const meas = textMeasurer();
       for (const m of state.data.nodes) {
         if (m.kind !== 'module') continue;
+        const headH = headerHeightForModule(m);
         const kids = childrenByParent.get(m.id) || [];
         const classKids = kids.filter(k=>k.kind==='class');
         const funcKids = kids.filter(k=>k.kind==='func');
@@ -765,8 +756,8 @@
         // compute full open height: classes (with methods) + module-level funcs
         let classesH = 0;
         for (const c of classKids){ const methods = (childrenByParent.get(c.id)||[]).filter(n=>n.kind==='func'); classesH += (MOD_HEAD + MOD_PAD + (methods.length*(SLOT_H+GAP)) + MOD_PAD); }
-        const modH_open = MOD_HEAD + MOD_PAD + (funcKids.length * (SLOT_H + GAP)) + classesH + MOD_PAD;
-        const modH_closed = MOD_HEAD + MOD_PAD + MOD_PAD;
+        const modH_open = headH + MOD_PAD + (funcKids.length * (SLOT_H + GAP)) + classesH + MOD_PAD;
+        const modH_closed = headH + MOD_PAD + MOD_PAD;
         const modH = m.collapsed ? modH_closed : modH_open;
 
         const gx = (m.x ?? 0), gy = (m.y ?? 0);
@@ -776,13 +767,26 @@
 
         const rect = createSvg('rect', {width: MOD_W, height: modH, class:'module'});
         g.appendChild(rect);
-        g.appendChild(createText(MOD_PAD, 16, 'module-title', m.label));
+        {
+          const t = createText(MOD_PAD, 16, 'module-title', '');
+          applyModuleLabel(t, m.label || '');
+          g.appendChild(t);
+          // Expose full absolute path on hover
+          try { (g || rect || t).setAttribute('title', m.fsPath || m.label || ''); } catch {}
+        }
         // highlight search matches on module title
         maybeAddSearchMarks(g, m, MOD_PAD, 6, m.label, true);
-        g.appendChild(createText(MOD_PAD, 26, 'module-badge', 'module'));
+        {
+          const meas = textMeasurer();
+          const badgeText = 'module';
+          const badgeW = meas(badgeText, 12, false);
+          const badgeX = Math.max(MOD_PAD, (MOD_W - MOD_PAD - badgeW));
+          // same baseline as the basename line
+          g.appendChild(createText(badgeX, 16, 'module-badge', badgeText));
+        }
 
         // collapse toggle
-        const triX = MOD_W - 18, triY = 14;
+        const triX = MOD_W - 18, triY = (headH / 2) - 5; // center-ish
         const tri = createSvg('path', { d: m.collapsed ? `M ${triX} ${triY} l 10 0 l -5 8 z` : `M ${triX} ${triY} l 10 0 l 0 10 z`, class: 'module-toggle' });
         try { globalThis.DepViz?.interact?.wireCollapseToggle ? globalThis.DepViz.interact.wireCollapseToggle(tri, m) : tri.addEventListener('click', (e)=>{ e.stopPropagation(); m.collapsed = !m.collapsed; schedule(); }); } catch {}
         g.appendChild(tri);
@@ -793,7 +797,7 @@
         const gm = createSvg('g', {'data-owner': m.id, transform:`translate(${gx}, ${gy})`});
 
         // Compute flow layout for classes and module funcs interleaved by desired y
-        let modHeightActual = MOD_HEAD + MOD_PAD + MOD_PAD;
+        let modHeightActual = headH + MOD_PAD + MOD_PAD;
         if (!m.collapsed) {
           const innerW = MOD_W - MOD_PAD*2;
           const items = [];
@@ -809,7 +813,7 @@
             }
           }
           items.sort((a,b)=> (a.want - b.want));
-          let yCursor = MOD_HEAD + MOD_PAD;
+          let yCursor = headH + MOD_PAD;
           for (const it of items) {
             if (it.type === 'class') {
               const c = it.node;
@@ -856,10 +860,10 @@
             { id:'toggle', label: m.collapsed ? 'Expand card' : 'Collapse card', run: ()=>{ m.collapsed = !m.collapsed; schedule(); } },
             { id:'focus_card', label:'Focus this card', run: ()=>{ try { state.focusModuleId = m.id; state.focusId = null; applyTypeVisibility(); centerOnNode(m); schedule(); } catch{} } },
             { id:'open_file', label:'Open File', run: ()=>{ try { if (VS && m.fsPath){ VS.postMessage({ type:'openAt', fsPath: m.fsPath, line:0, col:0, view:'beside' }); } } catch{} } },
-            { id:'slice_out', label:'Impact slice (outbound)', run: ()=>{ const s=computeSlice(m.id,'out'); applySliceOverlay(s); postImpactSummary(s,'out'); } },
-            { id:'slice_in',  label:'Reverse slice (inbound)', run: ()=>{ const s=computeSlice(m.id,'in');  applySliceOverlay(s); postImpactSummary(s,'in'); } },
-            { id:'slice_clear', label:'Clear impact slice', run: ()=> applySliceOverlay(null) },
-            { id:'delete', label:'Delete', run: ()=> doDelete({ kind:'module', id: m.id }) }
+            { id:'slice_out', label:'Show dependencies', run: ()=>{ const s=computeSlice(m.id,'out'); applySliceOverlay(s); postImpactSummary(s,'out'); } },
+            { id:'slice_in',  label:'Show dependents',   run: ()=>{ const s=computeSlice(m.id,'in');  applySliceOverlay(s); postImpactSummary(s,'in'); } },
+            { id:'slice_clear', label:'Clear highlight', run: ()=> applySliceOverlay(null) },
+            { id:'delete', label:'Remove from canvas', run: ()=> doDelete({ kind:'module', id: m.id }) }
           ];
           if (hasLostChildrenOfModule(m.id)) {
             items.splice(2, 0, { id:'reassemble_mod', label:'Reassemble children', run: ()=> reassembleModuleById(m.id) });
@@ -903,9 +907,9 @@
             const items = [
               { id:'reattach_parent', label:'Re-attach to module', run: ()=> reattachClassById(n.id) },
               { id:'goto', label:`Go to definition: ${nameOnly}` , run: ()=>{ try { if (VS && n.fsPath){ VS.postMessage({ type:'gotoDef', target: { file: n.fsPath, name: nameOnly }, view:'beside' }); } } catch{} } },
-              { id:'slice_out', label:'Impact slice (outbound)', run: ()=>{ const s=computeSlice(n.id,'out'); applySliceOverlay(s); postImpactSummary(s,'out'); } },
-              { id:'slice_in',  label:'Reverse slice (inbound)', run: ()=>{ const s=computeSlice(n.id,'in');  applySliceOverlay(s); postImpactSummary(s,'in'); } },
-              { id:'slice_clear', label:'Clear impact slice', run: ()=> applySliceOverlay(null) }
+              { id:'slice_out', label:'Show dependencies', run: ()=>{ const s=computeSlice(m.id,'out'); applySliceOverlay(s); postImpactSummary(s,'out'); } },
+              { id:'slice_in',  label:'Show dependents',   run: ()=>{ const s=computeSlice(m.id,'in');  applySliceOverlay(s); postImpactSummary(s,'in'); } },
+              { id:'slice_clear', label:'Clear highlight', run: ()=> applySliceOverlay(null) },
             ];
             if (hasLostMethods(n.id)) {
               items.splice(1, 0, { id:'reassemble_cls', label:'Reassemble children (methods)', run: ()=> reassembleClassById(n.id) });
@@ -956,7 +960,7 @@
         wireEdgeHover(path);
         // disable click highlight on edges
         path.addEventListener('click', (ev)=>{ ev.stopPropagation(); /* no highlight */ });
-        path.addEventListener('contextmenu', (e)=>{ const items=[{id:'delete',label:'Delete',run:()=>doDelete({kind:'edge',el:path})}]; showCtx(e, { kind:'edge', el:path }, items); });
+        path.addEventListener('contextmenu', (e)=>{ const items=[{id:'delete',label:'Remove from canvas',run:()=>doDelete({kind:'edge',el:path})}]; showCtx(e, { kind:'edge', el:path }, items); });
       }
 
       applyTypeVisibility();
@@ -979,16 +983,16 @@
     // enable dragging for functions
     try { globalThis.DepViz?.interact?.enableFuncDrag && globalThis.DepViz.interact.enableFuncDrag(g, rect, n, funcW, docked); } catch {}
     g.addEventListener('contextmenu', (e)=>{
-      const nameOnly = n.kind==='class' ? (n.label||'').replace(/^class\s+/,'').trim()
-                                        : (n.label||'').replace(/^def\s+|\(.*$/g,'');
+      const nameOnly = _nameOnly(n);
+      const fileBase = (n.fsPath||'').split(/[\\/]/).pop() || '';
       const items = [
-        { id:'goto', label:`Go to definition: ${nameOnly}` , run: ()=>{ try { if (VS && n.fsPath){ VS.postMessage({ type:'gotoDef', target: { file: n.fsPath, name: nameOnly }, view:'beside' }); } } catch{} } },
-        { id:'peek', label:`Peek call sites: ${nameOnly}`, run: ()=>{ try { if (VS && n.fsPath && n.kind!=='class'){ VS.postMessage({ type:'peekRefs', target: { file: n.fsPath, name: nameOnly }, view:'beside' }); } } catch{} } },
+        { id:'goto', label:`Go to definition: ${nameOnly}${fileBase?'  ·  '+fileBase:''}`, run: ()=>{ try { goToNode(n, { beside:true }) } catch{} } },
+        { id:'peek', label:`Peek call sites: ${nameOnly}`, run: ()=>{ try { if (n.kind!=='class') goToNode(n, { beside:true, peek:true }); } catch{} } },
         { id:'focus', label:`Focus function: ${nameOnly}`, run: ()=>{ try { state.focusId = n.id; state.focusModuleId = null; applyTypeVisibility(); centerOnNode(n); } catch{} } },
-        { id:'slice_out', label:'Impact slice (outbound)', run: ()=>{ const s=computeSlice(n.id,'out'); applySliceOverlay(s); postImpactSummary(s,'out'); } },
-        { id:'slice_in',  label:'Reverse slice (inbound)', run: ()=>{ const s=computeSlice(n.id,'in');  applySliceOverlay(s); postImpactSummary(s,'in'); } },
-        { id:'slice_clear', label:'Clear impact slice', run: ()=> applySliceOverlay(null) },
-        { id:'delete', label:'Delete', run: ()=> doDelete({ kind:'func', id: n.id }) }
+        { id:'slice_out', label:'Show dependencies', run: ()=>{ const s=computeSlice(n.id,'out'); applySliceOverlay(s); postImpactSummary(s,'out'); } },
+        { id:'slice_in',  label:'Show dependents',   run: ()=>{ const s=computeSlice(n.id,'in');  applySliceOverlay(s); postImpactSummary(s,'in'); } },
+        { id:'slice_clear', label:'Clear highlight', run: ()=> applySliceOverlay(null) },
+        { id:'delete', label:'Remove from canvas', run: ()=> doDelete({ kind:'func', id: n.id }) }
       ];
       if (!n.docked) {
         items.unshift({ id:'reattach_parent', label:'Re-attach to parent', run: ()=> reattachFuncById(n.id) });
@@ -1056,13 +1060,13 @@
     try { globalThis.DepViz?.interact?.enableClassDrag && globalThis.DepViz.interact.enableClassDrag(g, rect, c); } catch {}
     g.addEventListener('contextmenu', (e) => {
       e.preventDefault();
-      const label = String(c.label || '');
-      const nameOnly = label.replace(/^class\s+/, '').replace(/\s*[:(].*$/, '').trim();
+      const nameOnly = _nameOnly(c);
+      const fileBase = (c.fsPath||'').split(/[\\/]/).pop() || '';
       const items = [
-        { id:'goto', label:`Go to definition: ${nameOnly}`, run: ()=>{ try { if (VS && c.fsPath){ VS.postMessage({ type:'gotoDef', target:{ file:c.fsPath, name:nameOnly }, view:'beside' }); } } catch{} } },
-        { id:'slice_out', label:'Impact slice (outbound)', run: ()=>{ const s=computeSlice(c.id,'out'); applySliceOverlay(s); postImpactSummary(s,'out'); } },
-        { id:'slice_in',  label:'Reverse slice (inbound)', run: ()=>{ const s=computeSlice(c.id,'in');  applySliceOverlay(s,'in'); postImpactSummary(s,'in'); } },
-        { id:'slice_clear', label:'Clear impact slice', run: ()=> applySliceOverlay(null) }
+        { id:'goto', label:`Go to definition: ${nameOnly}${fileBase?'  ·  '+fileBase:''}`, run: ()=>{ try { goToNode(c, { beside:true }) } catch{} } },
+        { id:'slice_out', label:'Show dependencies', run: ()=>{ const s=computeSlice(c.id,'out'); applySliceOverlay(s); postImpactSummary(s,'out'); } },
+        { id:'slice_in',  label:'Show dependents',   run: ()=>{ const s=computeSlice(c.id,'in');  applySliceOverlay(s,'in'); postImpactSummary(s,'in'); } },
+        { id:'slice_clear', label:'Clear highlight', run: ()=> applySliceOverlay(null) }
       ];
       // Only show if this class actually has undocked methods
       if (hasLostMethods(c.id)) {
@@ -1078,14 +1082,45 @@
     try {
       const q = (state.searchQuery||'').trim().toLowerCase();
       if (!q) return;
-      const text = String(labelText||'');
-      const hay = text.toLowerCase();
-      if (!hay.includes(q)) return;
       const meas = textMeasurer();
+      const raw = String(labelText || '');
+      if (node.kind === 'module') {
+        const { base, parent } = splitPathLabel(raw);
+        const baseHay = base.toLowerCase();
+        const parentHay = parent.toLowerCase();
+        // line 1 (basename)
+        let i1 = 0;
+        while ((i1 = baseHay.indexOf(q, i1)) !== -1) {
+          const px = xBase + meas(base.slice(0, i1), 12, !!bold);
+          const pw = Math.max(8, meas(base.slice(i1, i1 + q.length), 12, !!bold));
+          const mark = createSvg('rect', { x: px-1, y: yBase, width: pw+2, height: 14, class: 'search-mark' });
+          const firstText = group.querySelector('text');
+          group.insertBefore(mark, firstText || group.firstChild);
+          i1 += Math.max(1, q.length);
+        }
+        // line 2 (parent path)
+        if (parent) {
+          let i2 = 0;
+          // second line shares same xBase; baseline shifts by ~1.05em from your tspan
+          const y2 = yBase + 13; // 12px font → ~13px line step looks right
+          while ((i2 = parentHay.indexOf(q, i2)) !== -1) {
+            const px = xBase + meas(parent.slice(0, i2), 12, !!bold);
+            const pw = Math.max(8, meas(parent.slice(i2, i2 + q.length), 12, !!bold));
+            const mark = createSvg('rect', { x: px-1, y: y2, width: pw+2, height: 14, class: 'search-mark' });
+            const firstText = group.querySelector('text');
+            group.insertBefore(mark, firstText || group.firstChild);
+            i2 += Math.max(1, q.length);
+          }
+        }
+        return;
+      }
+      // Non-module: single line
+      const hay = raw.toLowerCase();
+      if (!hay.includes(q)) return;
       let idx = 0;
       while ((idx = hay.indexOf(q, idx)) !== -1){
-        const px = xBase + meas(text.slice(0, idx), 12, !!bold);
-        const pw = Math.max(8, meas(text.slice(idx, idx + q.length), 12, !!bold));
+        const px = xBase + meas(raw.slice(0, idx), 12, !!bold);
+        const pw = Math.max(8, meas(raw.slice(idx, idx + q.length), 12, !!bold));
         const mark = createSvg('rect', { x: px-1, y: yBase, width: pw+2, height: 14, class: 'search-mark' });
         const firstText = group.querySelector('text');
         group.insertBefore(mark, firstText || group.firstChild);
@@ -1161,7 +1196,60 @@
   function textMeasurer(){ const c=document.createElement('canvas'); const ctx=c.getContext('2d'); return (t,s=12,b=false)=>{ ctx.font = `${b?'600 ':''}${s}px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial`; return Math.ceil(ctx.measureText(t||'').width); }; }
   function createSvg(tag, attrs){ const el=document.createElementNS('http://www.w3.org/2000/svg', tag); for (const k in (attrs||{})) el.setAttribute(k, attrs[k]); return el; }
   function createText(x,y,cls,txt){ const t=createSvg('text',{x,y,class:cls}); t.textContent=txt; return t; }
-
+  function splitPathLabel(label){
+    const s = String(label || '');
+    const i = s.lastIndexOf('/');
+    if (i < 0) return { base: s, parent: '' };
+    return { base: s.slice(i+1), parent: s.slice(0, i) };
+  }
+  function _nameOnly(n){
+    const raw = String(n.label||'');
+    if (n.kind==='class') return raw.replace(/^class\s+/,'').replace(/\s*[:(].*$/,'').trim();
+    return raw.replace(/^(?:def\s+)?/,'').replace(/\(.*$/,'').trim();
+  }
+  function goToNode(n, { beside=true, peek=false } = {}){
+    if (!VS || !n || !n.fsPath) return;
+    const view = beside ? 'beside' : '';
+    const name = _nameOnly(n);
+    const hasRange = n.range && Number.isInteger(n.range.line) && Number.isInteger(n.range.col);
+    if (hasRange){
+      VS.postMessage({ type:'openAt', fsPath:n.fsPath, line:n.range.line, col:n.range.col, view });
+      if (peek && n.kind!=='class'){
+        VS.postMessage({ type:'peekRefs', target:{ file:n.fsPath, name }, view });
+      }
+      return;
+    }
+    VS.postMessage({ type: peek ? 'peekRefs' : 'gotoDef', target:{ file:n.fsPath, name }, view });
+  }
+  function applyModuleLabel(textEl, rawLabel){
+    try {
+      const { base, parent } = splitPathLabel(rawLabel);
+      while (textEl.firstChild) textEl.removeChild(textEl.firstChild);
+      const NS = 'http://www.w3.org/2000/svg';
+      const t1 = document.createElementNS(NS, 'tspan');
+      t1.setAttribute('class', 'basename');
+      t1.textContent = base || '';
+      textEl.appendChild(t1);
+      if (parent) {
+        const t2 = document.createElementNS(NS, 'tspan');
+        t2.setAttribute('class', 'parentpath');
+        // reset x to align second line with the text's x
+        t2.setAttribute('x', textEl.getAttribute('x') || '0');
+        // keep the second line compact to stay within the header block
+        t2.setAttribute('dy', '1.05em');
+        t2.textContent = parent;
+        textEl.appendChild(t2);
+      }
+    } catch {}
+  }
+  function headerHeightForModule(m){
+    try {
+      const lbl = String(m?.label || '');
+      const parts = splitPathLabel(lbl);
+      // baseline is MOD_HEAD; add ~12px when a parent path is present
+      return parts.parent ? (MOD_HEAD + 12) : MOD_HEAD;
+    } catch { return MOD_HEAD; }
+  }
   // --- Edge-vs-module occlusion helpers ------------------------------------
   function bboxIntersects(a, b){
     return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
@@ -1178,12 +1266,24 @@
     }
     return null;
   }
-  // Should an edge be drawn behind expanded modules? (i.e., does its bbox intersect
-  // any expanded module card that is not the edge’s own home modules)
   function edgeShouldGoBehindExpandedModules(edge, edgeBBox){
     try {
+      // Compute once; reuse for fast-path and loop below
       const fromHome = homeModuleId(edge.from);
       const toHome   = homeModuleId(edge.to);
+      if (fromHome && toHome && fromHome === toHome) {
+        const m = nodeMap.get(fromHome);
+        const box = state.moduleBoxes.get(fromHome);
+        if (m && box && !m.collapsed) {
+          const a = DepViz.geom.anchorPoint(nodeMap.get(edge.from));
+          const b = DepViz.geom.anchorPoint(nodeMap.get(edge.to));
+          if (a && b &&
+              a.x>=box.x && a.x<=box.x+box.w && a.y>=box.y && a.y<=box.y+box.h &&
+              b.x>=box.x && b.x<=box.x+box.w && b.y>=box.y && b.y<=box.y+box.h){
+            return false;
+          }
+        }
+      }
       for (const [id, box] of state.moduleBoxes){
         const m = nodeMap.get(id);
         if (!m || m.kind !== 'module') continue;
@@ -1380,18 +1480,37 @@
       if (query && state.searchMatches.length === 1) {
         const { n, idx } = state.searchMatches[0];
         const meas = textMeasurer();
-        let wx=0, wy=0;
-        if (n.kind==='module'){
+        let wx = 0, wy = 0;
+
+        if (n.kind === 'module') {
           const box = state.moduleBoxes.get(n.id) || { x: n.x||0, y: n.y||0, w:220, h:120 };
-          const px = MOD_PAD + meas(String(n.label||'').slice(0, idx), 12, true);
-          const pw = meas(String(n.label||'').slice(idx, idx+query.length), 12, true);
-          wx = box.x + px + pw/2; wy = box.y + 12;
+          const { base, parent } = splitPathLabel(String(n.label||''));
+          const baseHay = base.toLowerCase();
+
+          // If the hit is within the basename line
+          const inBase = (idx < base.length) && (baseHay.indexOf(query, idx) !== -1);
+          if (inBase) {
+            const px = MOD_PAD + meas(base.slice(0, idx), 12, true);
+            const pw = meas(base.slice(idx, idx + query.length), 12, true);
+            wx = box.x + px + pw/2;
+            wy = box.y + 12;       // first line baseline
+          } else {
+            // Hit is in the parent path line; shift index to parent substring
+            const off = Math.max(0, idx - (base.length + 1)); // +1 for the slash/sep
+            const px = MOD_PAD + meas(parent.slice(0, off), 12, true);
+            const pw = meas(parent.slice(off, off + query.length), 12, true);
+            wx = box.x + px + pw/2;
+            wy = box.y + 25;       // second line baseline (≈ 12px + a bit)
+          }
         } else {
+          // Non-module (func/class): single-line label
           const tl = DepViz.geom.absTopLeftOf(n, n._w || FUNC_W_DEFAULT);
           const px = 10 + meas(String(n.label||'').slice(0, idx), 12, false);
-          const pw = meas(String(n.label||'').slice(idx, idx+query.length), 12, false);
-          wx = tl.x + px + pw/2; wy = tl.y + 12;
+          const pw = meas(String(n.label||'').slice(idx, idx + query.length), 12, false);
+          wx = tl.x + px + pw/2;
+          wy = tl.y + 12;
         }
+
         centerOnWorld(wx, wy);
         state.searchIndex = 0;
         updateSearchCounter();
@@ -1439,9 +1558,19 @@
       let wx=0, wy=0;
       if (n.kind==='module'){
         const box = state.moduleBoxes.get(n.id) || { x: n.x||0, y: n.y||0, w:220, h:120 };
-        const px = MOD_PAD + meas(String(n.label||'').slice(0, off), 12, true);
-        const pw = meas(String(n.label||'').slice(off, off+q.length), 12, true);
-        wx = box.x + px + pw/2; wy = box.y + 12;
+        const { base, parent } = splitPathLabel(String(n.label||''));
+        const baseHay = base.toLowerCase();
+        const inBase = baseHay.indexOf(q) !== -1 && off < base.length;
+        if (inBase) {
+          const px = MOD_PAD + meas(base.slice(0, off), 12, true);
+          const pw = meas(base.slice(off, off+q.length), 12, true);
+          wx = box.x + px + pw/2; wy = box.y + 12;
+        } else {
+          const off2 = Math.max(0, off - base.length - 1);
+          const px = MOD_PAD + meas(parent.slice(0, off2), 12, true);
+          const pw = meas(parent.slice(off2, off2+q.length), 12, true);
+          wx = box.x + px + pw/2; wy = box.y + 25;
+        }
       } else {
         const tl = DepViz.geom.absTopLeftOf(n, n._w || FUNC_W_DEFAULT);
         const px = 10 + meas(String(n.label||'').slice(0, off), 12, false);
@@ -1491,7 +1620,15 @@
   }
   function exportJson(){
     try {
-      const text = JSON.stringify(state.data, null, 2);
+      // Strip heavy/transient fields from export so prior-language metadata can't leak
+      const safe = {
+        nodes: (state.data.nodes||[]).map(n=>{
+          const { source, snippet, ...rest } = n || {};
+          return rest;
+        }),
+        edges: state.data.edges || []
+      };
+      const text = JSON.stringify(safe, null, 2);
       const base64 = btoa(unescape(encodeURIComponent(text)));
       VS && VS.postMessage({ type:'exportData', kind:'json', base64, suggestedName: 'depviz.json' });
     } catch(e){ console.error('exportJson error', e); }
