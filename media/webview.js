@@ -859,7 +859,7 @@
             { id:'slice_out', label:'Impact slice (outbound)', run: ()=>{ const s=computeSlice(m.id,'out'); applySliceOverlay(s); postImpactSummary(s,'out'); } },
             { id:'slice_in',  label:'Reverse slice (inbound)', run: ()=>{ const s=computeSlice(m.id,'in');  applySliceOverlay(s); postImpactSummary(s,'in'); } },
             { id:'slice_clear', label:'Clear impact slice', run: ()=> applySliceOverlay(null) },
-            { id:'delete', label:'Delete', run: ()=> doDelete({ kind:'module', id: m.id }) }
+            { id:'delete', label:'Remove from canvas', run: ()=> doDelete({ kind:'module', id: m.id }) }
           ];
           if (hasLostChildrenOfModule(m.id)) {
             items.splice(2, 0, { id:'reassemble_mod', label:'Reassemble children', run: ()=> reassembleModuleById(m.id) });
@@ -956,7 +956,7 @@
         wireEdgeHover(path);
         // disable click highlight on edges
         path.addEventListener('click', (ev)=>{ ev.stopPropagation(); /* no highlight */ });
-        path.addEventListener('contextmenu', (e)=>{ const items=[{id:'delete',label:'Delete',run:()=>doDelete({kind:'edge',el:path})}]; showCtx(e, { kind:'edge', el:path }, items); });
+        path.addEventListener('contextmenu', (e)=>{ const items=[{id:'delete',label:'Remove from canvas',run:()=>doDelete({kind:'edge',el:path})}]; showCtx(e, { kind:'edge', el:path }, items); });
       }
 
       applyTypeVisibility();
@@ -988,7 +988,7 @@
         { id:'slice_out', label:'Impact slice (outbound)', run: ()=>{ const s=computeSlice(n.id,'out'); applySliceOverlay(s); postImpactSummary(s,'out'); } },
         { id:'slice_in',  label:'Reverse slice (inbound)', run: ()=>{ const s=computeSlice(n.id,'in');  applySliceOverlay(s); postImpactSummary(s,'in'); } },
         { id:'slice_clear', label:'Clear impact slice', run: ()=> applySliceOverlay(null) },
-        { id:'delete', label:'Delete', run: ()=> doDelete({ kind:'func', id: n.id }) }
+        { id:'delete', label:'Remove from canvas', run: ()=> doDelete({ kind:'func', id: n.id }) }
       ];
       if (!n.docked) {
         items.unshift({ id:'reattach_parent', label:'Re-attach to parent', run: ()=> reattachFuncById(n.id) });
