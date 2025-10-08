@@ -373,7 +373,7 @@ async function parseFileLspAware(uri: vscode.Uri, text: string) {
         if (!classIds.has(className)) {
           const clsId = `cls_${hash(fileLabel + ':' + className)}`;
           classIds.set(className, clsId);
-          nodes.push({ id: clsId, kind: 'class', label: `class ${className}`, parent: moduleId, docked: true, snippet: doc.getText(s.range).split(/\r?\n/).slice(0,20).join('\n'), fsPath: uri.fsPath, range: { line: s.selectionRange.start.line, col: s.selectionRange.start.character } });
+          nodes.push({ id: clsId, kind: 'class', label: className, parent: moduleId, docked: true, snippet: doc.getText(s.range).split(/\r?\n/).slice(0,20).join('\n'), fsPath: uri.fsPath, range: { line: s.selectionRange.start.line, col: s.selectionRange.start.character } });
         }
         for (const c of (s.children || [])) {
           if (c.kind === vscode.SymbolKind.Method || c.kind === vscode.SymbolKind.Function) {
@@ -393,7 +393,7 @@ async function parseFileLspAware(uri: vscode.Uri, text: string) {
 
     const lines = text.split(/\r?\n/);
     for (const fn of fns) {
-      nodes.push({ id: fn.id, kind: 'func', label: `def ${fn.name}()`, parent: fn.parent, docked: true, snippet: snippetFrom(lines, fn.start), fsPath: uri.fsPath, range: { line: fn.start, col: fn.col } });
+      nodes.push({ id: fn.id, kind: 'func', label: fn.name, parent: fn.parent, docked: true, snippet: snippetFrom(lines, fn.start), fsPath: uri.fsPath, range: { line: fn.start, col: fn.col } });
     }
 
     // Within-file call edges (heuristic)
@@ -903,7 +903,7 @@ function parseFile(uri: vscode.Uri, text: string) {
       const clsId = `cls_${hash(fileLabel + ':' + clsName)}`;
       classIds.set(clsName, clsId);
       classStack.push({ name: clsName, indent, id: clsId });
-      nodes.push({ id: clsId, kind: 'class', label: `class ${clsName}`, parent: moduleId, docked: true, snippet: lines.slice(i, Math.min(lines.length, i+20)).join('\n'), fsPath: uri.fsPath, range: { line: i, col: indent } });
+      nodes.push({ id: clsId, kind: 'class', label: clsName, parent: moduleId, docked: true, snippet: lines.slice(i, Math.min(lines.length, i+20)).join('\n'), fsPath: uri.fsPath, range: { line: i, col: indent } });
       continue;
     }
     const m1 = pyDef.exec(L) || tsDef.exec(L) || tsVarFn.exec(L);
@@ -926,7 +926,7 @@ function parseFile(uri: vscode.Uri, text: string) {
 
   for (const fn of fns) {
     nodes.push({
-      id: fn.id, kind: 'func', label: `def ${fn.name}()`, parent: fn.parent || moduleId, docked: true,
+      id: fn.id, kind: 'func', label: fn.name, parent: fn.parent || moduleId, docked: true,
       snippet: snippetFrom(lines, fn.start), fsPath: uri.fsPath, range: { line: fn.start, col: fn.col }
     });
   }
