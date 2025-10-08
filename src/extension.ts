@@ -2,8 +2,9 @@
 import * as vscode from 'vscode';
 import { RelativePattern } from 'vscode';
 
-// minimal shim so we don't need @types/node
-declare const Buffer: any;
+const enc = (s: string) => new TextEncoder().encode(s);
+const dec = (b: Uint8Array) => new TextDecoder('utf-8').decode(b);
+const fromBase64 = (b64: string) => Uint8Array.from(atob(b64), c => c.charCodeAt(0));
 
 let singletonPanel: vscode.WebviewPanel | undefined;
 let statusBar: vscode.StatusBarItem | undefined;
@@ -104,11 +105,11 @@ class DvDocument implements vscode.CustomDocument {
     });
   }
   async save(_token: vscode.CancellationToken): Promise<void> {
-    await vscode.workspace.fs.writeFile(this.uri, Buffer.from(this._text, 'utf8'));
+    await vscode.workspace.fs.writeFile(this.uri, enc(this._text));
     this._savedText = this._text;
   }
   async saveAs(target: vscode.Uri, _token: vscode.CancellationToken): Promise<void> {
-    await vscode.workspace.fs.writeFile(target, Buffer.from(this._text, 'utf8'));
+    await vscode.workspace.fs.writeFile(target, enc(this._text));
     this._savedText = this._text;
   }
   async revert(_token: vscode.CancellationToken): Promise<void> {
@@ -124,7 +125,7 @@ class DvDocument implements vscode.CustomDocument {
     });
   }
   async backup(destination: vscode.Uri, _token: vscode.CancellationToken): Promise<vscode.CustomDocumentBackup> {
-    await vscode.workspace.fs.writeFile(destination, Buffer.from(this._text, 'utf8'));
+    await vscode.workspace.fs.writeFile(destination, enc(this._text));
     return { id: destination.toString(), delete: async () => { try { await vscode.workspace.fs.delete(destination); } catch {} } };
   }
 }
@@ -229,8 +230,8 @@ class DepvizDvProvider implements vscode.CustomEditorProvider<DvDocument> {
       }
       case 'exportData': {
         const kind = String(message.kind || 'json');
-        const suggestedName = String(message.suggestedName || `graph.${kind}`);
-        const bytes = Buffer.from(String(message.base64||''), 'base64');
+        const suggestedName = String(message.suggestedName || `depviz-${Date.now()}.${kind}`);
+        const bytes = fromBase64(String(message.base64||''));
         const filters: Record<string,string[]> =
           kind==='svg' ? { 'SVG': ['svg'] } :
           kind==='png' ? { 'PNG Image': ['png'] } :
@@ -248,7 +249,12 @@ class DepvizDvProvider implements vscode.CustomEditorProvider<DvDocument> {
           const snap = message.payload || {};
           const text = JSON.stringify(snap, null, 2);
           document.applyEdit(text, 'Save graph');
-          await document.save(new vscode.CancellationTokenSource().token);
+          const cts = new vscode.CancellationTokenSource();
+          try {
+            await document.save(cts.token);
+          } finally {
+            cts.dispose();
+          }
           vscode.window.setStatusBarMessage('DepViz: Snapshot saved', 2000);
         } catch (e:any) {
           vscode.window.showErrorMessage(`DepViz: Save failed: ${e?.message || e}`);
@@ -411,7 +417,6 @@ async function parseFileLspAware(uri: vscode.Uri, text: string) {
     const bodyOf = (fn: Fn) => {
       try { return doc.getText(new vscode.Range(new vscode.Position(fn.start, 0), new vscode.Position(fn.end + 1, 0))); } catch { return lines.slice(fn.start, fn.end + 1).join('\n'); }
     };
-    const USE_LSP_REFS = false; // was true; disabled to avoid dropping edges incorrectly
     for (const fn of fns) {
       const body = stripStringsAndComments(bodyOf(fn));
       for (const [calleeToken, ids] of nameToIds) {
@@ -597,7 +602,7 @@ function openPanel(context: vscode.ExtensionContext): vscode.WebviewPanel {
                            { 'JSON': ['json'] };
           const uri = await vscode.window.showSaveDialog({ filters, defaultUri: vscode.Uri.file(suggestedName) });
           if (!uri) break;
-          const bytes = Buffer.from(blobBase64, 'base64');
+          const bytes = fromBase64(blobBase64);
           await vscode.workspace.fs.writeFile(uri, bytes);
           const label = kind==='dv' ? 'DV' : kind.toUpperCase();
           vscode.window.showInformationMessage(`DepViz: Exported ${label} to ${uri.fsPath}`);
@@ -724,7 +729,7 @@ function isInWorkspace(uri: vscode.Uri): boolean {
     return filePath === base || filePath.startsWith(withSlash);
   });
 }
-function normalizePath(p: string) { return p.replace(/\\/g, '/').toLowerCase(); }
+function normalizePath(p: string) { return p.replace(/\\/g, '/'); }
 
 function toSafeFileUri(input: string): vscode.Uri {
   const looksLikeUri = /^[A-Za-z][A-Za-z0-9+.-]*:/.test(input);
@@ -781,6 +786,7 @@ const SKIP_DIRS = new Set([
   '__pycache__', '.pytest_cache', '.mypy_cache', '.ruff_cache', '.tox'
 ]);
 const SKIP_EXTS = new Set([
+  '.d.ts.map',
   '.min.js', '.map', '.lock',
   // images & icons
   '.png','.jpg','.jpeg','.gif','.svg','.ico',
@@ -865,7 +871,7 @@ function updateStatusBar() {
 function getNonce() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   let s = '';
-  for (let i = 0; i < 32; i++) s += chars.charAt(Math.floor(Math.random() * Math.random() * chars.length));
+  for (let i = 0; i < 32; i++) s += chars.charAt(Math.floor(Math.random() * chars.length));
   return s;
 }
 
@@ -1100,16 +1106,7 @@ function hash(s: string): string {
 
 /** Decode Uint8Array to UTF-8 string without pulling in @types/node or util. */
 function decodeUtf8(bytes: Uint8Array): string {
-  try {
-    const TD: any = (globalThis as any).TextDecoder;
-    if (TD) return new TD('utf-8').decode(bytes);
-  } catch {}
-  try {
-    if (typeof Buffer !== 'undefined') {
-      return Buffer.from(bytes as any).toString('utf8');
-    }
-  } catch {}
-  throw new Error('UTF-8 decode not supported in this environment');
+    return new TextDecoder('utf-8').decode(bytes);
 }
 
 // -------- Archflow-like: go to symbol + peek refs with beside column
