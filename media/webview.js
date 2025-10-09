@@ -1,3 +1,5 @@
+// media/webview.js
+
 (function(){
   // Stable VS Code handle
   const VS = globalThis.vscode; // set by nonce'd boot script in extension.ts

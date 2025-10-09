@@ -1,4 +1,5 @@
-// Geometry + edge bookkeeping module
+// media/webview-geom.js
+
 (function(){
   const D = globalThis.DepViz || (globalThis.DepViz = {});
   const S = D.state;

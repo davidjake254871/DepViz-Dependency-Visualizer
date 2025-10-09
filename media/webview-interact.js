@@ -1,4 +1,5 @@
-// Interaction module: drag and collapse behavior
+// media/webview-interact.js
+
 (function(){
   const D = globalThis.DepViz || (globalThis.DepViz = {});
   const S = D.state;
