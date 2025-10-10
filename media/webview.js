@@ -456,11 +456,6 @@
     const mod = e.ctrlKey || e.metaKey;
     if (mod && e.shiftKey && e.key.toLowerCase()==='a'){ e.preventDefault(); DepViz.arrange?.autoArrangeByFolders?.(); schedule(); }
   });
-  window.addEventListener('keydown', (e)=>{
-    const mod = e.ctrlKey || e.metaKey;
-    if (mod && e.shiftKey && e.key.toLowerCase()==='b'){ e.preventDefault(); DepViz.arrange?.autoArrangeBalanced?.(); schedule(); }
-  });
-  window.addEventListener('keydown', (e)=>{ if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase()==='f'){ e.preventDefault(); try { showSearchBar(); } catch{} } });
   // Make Escape actually useful: close search else clear slice
   window.addEventListener('keydown', (e)=>{
     if (e.key === 'Escape') {
