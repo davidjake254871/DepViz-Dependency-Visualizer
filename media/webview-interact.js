@@ -209,8 +209,8 @@
       window.removeEventListener('mouseup', onUp);
       if (!node.docked) {
         const C = D.consts || {}; const w = (node._w || funcW || 180), h = (C.FUNC_H || 42);
-        const rect = { x: (node.x||0), y: (node.y||0), w, h };
-        let hit = bestDockTarget(rect, ['class','module']) || bestDockTarget(rect, ['module']);
+        const fbox = { x: (node.x||0), y: (node.y||0), w, h };
+        let hit = bestDockTarget(fbox, ['class','module']) || bestDockTarget(fbox, ['module']);
         let target = hit?.id || null;
         let tNode  = hit?.node || null;
  
@@ -250,9 +250,13 @@
             g.setAttribute('transform', `translate(${rx}, ${ry})`);
           }
         } else {
-          // illegal: just remain free at the collider-resolved spot (no flash/bounce)
+          // illegal: remain free and flash the card briefly
           node.docked = false;
           g.setAttribute('transform', `translate(${node.x||0}, ${node.y||0})`);
+          try {
+            const r = g.querySelector('rect.func');
+            if (r){ r.classList.add('collision'); setTimeout(()=>r.classList.remove('collision'), 220); }
+          } catch {}
         }
       }
       try { if (node && node.kind!=='func') console.assert(S.moduleBoxes && S.moduleBoxes.has(node.id), 'DepViz: missing box for', node.id); } catch (e) { warn('enableFuncDrag/assert', e); }

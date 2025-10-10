@@ -8,13 +8,11 @@
   // DOM
   const svg = document.getElementById('canvas');
   const wrapper = document.getElementById('canvasWrapper');
-  const toolbar = document.getElementById('toolbar');
   const themeToggle = document.getElementById('themeToggle');
+  const help = document.getElementById('help');
+  const toolbar = document.getElementById('toolbar');
   const btnArrange = document.getElementById('btnArrange');
   const btnClear = document.getElementById('btnClear');
-  const btnHelp = document.getElementById('btnHelp');
-  const help = document.getElementById('help');
-
   // Layout constants
   const MOD_PAD = 10, MOD_HEAD = 28, SLOT_H = 50, GAP = 8;
   const FUNC_H = 42, FUNC_W_DEFAULT = 180;
@@ -240,7 +238,7 @@
     return `
       <div class="legend-item" data-type="${type}" title="toggle ${type}">
         <svg class="legend-svg" viewBox="0 0 38 10" xmlns="http://www.w3.org/2000/svg">
-          <path class="legend-path ${type} edge ${type}" d="M2 5 L36 5"></path>
+          <path class="legend-path ${type}" d="M2 5 L36 5"></path>
           ${arrow}
         </svg>
         <span>${type}</span>
@@ -450,7 +448,6 @@
   // Toolbar
   btnArrange?.addEventListener('click', ()=>{ DepViz.arrange?.autoArrangeByFolders?.(); schedule(); });
   btnClear?.addEventListener('click', ()=>{ state.data = { nodes: [], edges: [] }; DepViz.data?.normalizeNodes?.(); schedule(); VS && VS.postMessage({ type: 'clearCanvas' }); });
-  btnHelp?.addEventListener('click', ()=>{ help.hidden = !help.hidden; });
 
   // Export/Import moved to canvas context menu
 
@@ -478,7 +475,6 @@
       } catch {}
     }
   });
-  window.addEventListener('keydown', (e)=>{ const mod = e.ctrlKey || e.metaKey; if (mod && e.key==='/'){ e.preventDefault(); help.hidden = !help.hidden; } });
   window.addEventListener('keydown', (e)=>{
     const mod = e.ctrlKey || e.metaKey;
     if (mod && e.shiftKey && e.key.toLowerCase()==='s') { e.preventDefault(); applySliceOverlay(null); schedule(); }
@@ -545,6 +541,8 @@
      if (state._histIndex < state._hist.length - 1) state._hist = state._hist.slice(0, state._histIndex + 1);
      state._hist.push(snap);
      state._histIndex = state._hist.length - 1;
+     const MAX_HIST = 100;
+     if (state._hist.length > MAX_HIST) { state._hist.shift(); state._histIndex--; }
      _lastSentHash = hash;
      VS && VS.postMessage({ type: 'edit', payload: snap, label });
    } catch {}
@@ -1460,6 +1458,9 @@
       const link = document.querySelector('link[href*="webview.css"]');
       let css = '';
       try { css = link ? await fetch(link.href).then(r=>r.text()) : ''; } catch {}
+      if (!css) {
+        css = `.edge{fill:none;stroke-width:2.2}.module{rx:10;ry:10}.func{rx:8;ry:8}.class{rx:8;ry:8}`;
+      }
       const clone = svg.cloneNode(true);
       const styleEl = document.createElementNS('http://www.w3.org/2000/svg','style');
       styleEl.textContent = css;

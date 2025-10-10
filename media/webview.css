@@ -48,19 +48,6 @@ body {
   z-index: 10;
 }
 
-#help {
-  position: absolute;
-  top: 48px;           /* sit just below the toolbar */
-  left: 8px;
-  z-index: 20;         /* above the toolbar (z-index:10) */
-}
-#help .hcard {
-  background: var(--card);
-  border: 1px solid var(--outline);
-  border-radius: 8px;
-  padding: 8px 10px;
-  box-shadow: 0 6px 24px var(--shadow);
-}
 #themeToggle { cursor: pointer; }
 #toolbar button {
   background: var(--hover);

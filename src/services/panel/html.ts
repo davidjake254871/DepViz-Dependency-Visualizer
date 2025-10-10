@@ -36,21 +36,9 @@ export function getPanelHtml(panel: vscode.WebviewPanel, deps: HtmlDeps): string
     <div id="toolbar" role="toolbar" aria-label="DepViz toolbar">
       <img id="themeToggle" title="Toggle theme" width="18" height="18"
            src="${deps.iconLight}" data-icon-dark="${deps.iconDark}" data-icon-light="${deps.iconLight}" />
-      <button id="btnHelp" title="Shortcuts (?)">?</button>
     </div>
     <div id="canvasWrapper">
       <svg id="canvas" tabindex="0" aria-label="dependency canvas" role="application"></svg>
-    </div>
-    <div id="help" hidden>
-      <div class="hcard">
-        <b>Shortcuts</b>
-        <div>Ctrl/Cmd+Shift+A – Arrange by folders</div>
-        <div>Ctrl/Cmd+Shift+B – Balanced grid</div>
-        <div>Ctrl/Cmd+/ – Toggle help</div>
-        <div>Ctrl/Cmd+Shift+S – Clear impact slice</div>
-        <div>Drag files/folders to import</div>
-        <div>Click legend to toggle edge types</div>
-      </div>
     </div>
     <div id="legend"></div>
 
