@@ -48,19 +48,6 @@ body {
   z-index: 10;
 }
 
-#help {
-  position: absolute;
-  top: 48px;           /* sit just below the toolbar */
-  left: 8px;
-  z-index: 20;         /* above the toolbar (z-index:10) */
-}
-#help .hcard {
-  background: var(--card);
-  border: 1px solid var(--outline);
-  border-radius: 8px;
-  padding: 8px 10px;
-  box-shadow: 0 6px 24px var(--shadow);
-}
 #themeToggle { cursor: pointer; }
 #toolbar button {
   background: var(--hover);
@@ -127,6 +114,9 @@ text, .module-title, .module-badge, .label, .badge {
 .module.dragging { cursor: grabbing; }
 g.module-group.hover rect.module { stroke: var(--hi-white); }
 g.module-group.selected rect.module { stroke: var(--hi-white); stroke-width: 2.6; }
+.module-group:hover rect.module,
+.class-group:hover rect.class,
+.func-group:hover rect.func { filter: drop-shadow(0 8px 24px var(--shadow)); }
 .module-title { font-size: 12px; fill: var(--fg); font-weight: 600; }
 .module-badge { font-size: 10px; fill: var(--muted); }
 .module-toggle { cursor: pointer; fill: var(--muted); }
@@ -188,6 +178,18 @@ g.func-group.selected rect.func { stroke-width: 2.6; stroke: var(--hi-white); }
   display: flex; gap: 12px; align-items: center;
   user-select: none;
 }
+
+/* Depth slider */
+#sliceDepth {
+  position: absolute; right: 8px; top: 56px; z-index: 9;
+  background: var(--card); padding: 6px 10px; border-radius: 8px;
+  box-shadow: 0 4px 16px var(--shadow);
+  display: flex; align-items: center; gap: 8px;
+  user-select: none;
+}
+#sliceDepth input { width: 120px; }
+#sliceDepth label { color: var(--muted); font-size: 12px; }
+
 .legend-item { display:flex; align-items:center; gap:6px; cursor:pointer; }
 .legend-item.off { opacity: 0.35; }
 .legend-svg { width: 38px; height: 10px; display:inline-block; }

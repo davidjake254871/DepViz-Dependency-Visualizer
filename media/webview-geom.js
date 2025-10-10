@@ -1,4 +1,5 @@
-// Geometry + edge bookkeeping module
+// media/webview-geom.js
+
 (function(){
   const D = globalThis.DepViz || (globalThis.DepViz = {});
   const S = D.state;
@@ -67,6 +68,7 @@
     const c2 = { x: midX, y: p2.y };
     pathEl.classList.remove('hidden');
     pathEl.setAttribute('d', elbow(p1, p2));
+    pathEl.setAttribute('d', `M ${p1.x} ${p1.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${p2.x} ${p2.y}`);
     // If there is a center-arrow for this edge, place it at t=0.5 with tangent rotation.
     if (pathEl._arrowEl) {
       const t = 0.5;
